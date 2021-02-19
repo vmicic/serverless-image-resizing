@@ -1,0 +1,7 @@
+name = "serverless-image-resizing"
+type = "webpack"
+account_id = "276c0c48feaf1703f340052038450e28"
+workers_dev = true
+route = ""
+zone_id = ""
+webpack_config = "webpack.config.js"
