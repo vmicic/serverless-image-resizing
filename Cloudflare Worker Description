@@ -1,0 +1,79 @@
+Cloudflare Worker Description
+------------------------------------------------
+
+A Cloudflare worker that can resize photos and apply watermarks on-demand. The worker then sends a request to a JSON API to get default parameters, which can be overridden by url parameters.
+
+1. The Worker receives a request to show a specific image. URL Example:
+https://data.example.com/i/{bucket}/{identifier}/{config_options}/{file}
+
+1.1 Request to https://api.example.com/v1/getPublicData/{identifier}
+1.2 The result of the request is JSON data, and needs to be cached in the Worker for 12 hours on a successful 200 response (https://developers.cloudflare.com/workers/runtime-apis/kv).
+
+2. The Worker fetches the original image from the object storage location, and apply resize/cropping/overlays according to the request data cached in 1.2 or the values based on the url parameters below.
+
+3. The Worker serves the newly generated image.
+
+------------------------------------------------
+
+URL config options syntax:
+
+Setting customized options per request:
+https://data.example.com/i/{bucket}/{identifier}/{config_options}/{file}
+
+Pre-defined setting templates (does not require a signature):
+
+https://data.example.com/i/{bucket}/{identifier}/thumb/{file}
+https://data.example.com/i/{bucket}/{identifier}/small/{file}
+https://data.example.com/i/{bucket}/{identifier}/medium/{file}
+https://data.example.com/i/{bucket}/{identifier}/large/{file}
+https://data.example.com/i/{bucket}/{identifier}/hd1080/{file}
+
+Default configuration per template:
+
+thumb: w=398,h=224,fit=cover
+small: w=796,h=448,fit=contain
+medium: w=1138,h=640,fit=contain
+large: w=1536,h=864,fit=contain
+hd1080: w=1920,h=1080,fit=contain
+
+If a default template is not used, the following configuration values can be used instead:
+
+Example URL that generates 500x500 photo with a watermark:
+https://data.example.com/i/{bucket}/{identifier}/w=500,h=500,o=https%3A%2F%2Fexample.com%2Fmy-watermark.png,s=a3d06437e3230a49d7936d4094215ee710513fa490be56797eb476f1bd2f1cf8/{file}
+
+Any passed arguments (listed below) also requires a valid signature with the request. The validation of signature works like this:
+
+Example Secret: 9RX?nSizQLQ (the secret will be provided through the request made in 1.2)
+SHA256 value of: w=500,h=500,o=https://example.com/my-watermark.png9RX?nSizQLQ
+
+List of query string options:
+
+"width" or "w" = Width of image, setting only width and no height should adjust according to the aspect ratio.
+"height" or "h" = Height of image, setting only height and no width should adjust according to the aspect ratio.
+"quality" or "q" = Compression level of image
+"dpr" = Device pixel ratio, default 1, to multiply width/height for higher DPI devices
+"fit" = Affects interpretation of width and height. All resizing modes preserve aspect ratio.
+ - "scale-down"
+ - "contain"
+ - "cover"
+ - "crop"
+ - "pad"
+ 
+"format" or "f" = Allows serving of the WebP format to browsers that support it (default "auto" = on)
+"sharpen" = Specifies strength of sharpening filter. The value is a floating-point number between 0 (no sharpening) and 10 (max)
+"overlay" or "o" = URL for overlay/watermark (urlencoded), set to "none" to use no overlay, all overlay commands requires a signature if they are changed using the query string
+"overlay_opacity" or "oo" = Opacity level of overlay/watermark (0.8=20%)
+"overlay_top" or "ot" = Position of the overlay image relative to the top
+"overlay_left" or "ol" = Position of the overlay image relative to the left
+"overlay_bottom" or "ob" = Position of the overlay image relative to the bottom
+"overlay_right" or "or" = Position of the overlay image relative to the right
+"overlay_rotate" = Number of degrees to rotate the overlay image by
+"overlay_repeat" = If set to true, the overlay image will be tiled to cover the entire area. If set to "x", the overlay image will be tiled horizontally only (form a line). If set to "y", the overlay image will be tiled vertically only (form a line).
+"signature" or "s" = A signature that authenticates the request, which needs to match when passing specific url config options (all listed above)
+
+Most of the options above, are taken from Cloudflare's docs:
+https://developers.cloudflare.com/images/url-format#options
+
+Important note: The Cloudflare image API should not be used, since this needs to work on the free tier plan with bundled workers.
+
+Meta data should always be stripped
