@@ -18,7 +18,6 @@ https://data.example.com/i/{bucket}/{identifier}/{config_options}/{file}
 URL config options syntax:
 
 Setting customized options per request:
-https://data.example.com/i/{bucket}/{identifier}/{config_options}/{file}
 
 Pre-defined setting templates (does not require a signature):
 
