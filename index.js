@@ -28,6 +28,39 @@ const applySmallConfig = async (base64Image) => {
     });
 };
 
+const applyMediumConfig = async (base64Image) => {
+  return Jimp.read(Buffer.from(base64Image, 'base64'))
+    .then((image) => {
+      const { width, height } = defaultConfigs.medium;
+      return image.contain(width, height);
+    })
+    .catch((err) => {
+      console.log(err);
+    });
+};
+
+const applyLargeConfig = async (base64Image) => {
+  return Jimp.read(Buffer.from(base64Image, 'base64'))
+    .then((image) => {
+      const { width, height } = defaultConfigs.large;
+      return image.contain(width, height);
+    })
+    .catch((err) => {
+      console.log(err);
+    });
+};
+
+const applyHd10808Config = async (base64Image) => {
+  return Jimp.read(Buffer.from(base64Image, 'base64'))
+    .then((image) => {
+      const { width, height } = defaultConfigs.hd1080;
+      return image.contain(width, height);
+    })
+    .catch((err) => {
+      console.log(err);
+    });
+};
+
 async function handleRequest(request) {
   try {
     // eslint-disable-next-line no-undef
@@ -55,6 +88,18 @@ async function handleRequest(request) {
 
     if (config === 'small') {
       image = await applySmallConfig(base64Image);
+    }
+
+    if (config === 'medium') {
+      image = await applyMediumConfig(base64Image);
+    }
+
+    if (config === 'large') {
+      image = await applyLargeConfig(base64Image);
+    }
+
+    if (config === 'hd1080') {
+      image = await applyHd10808Config(base64Image);
     }
 
     const buffer = await image.getBufferAsync(Jimp.MIME_JPEG);
