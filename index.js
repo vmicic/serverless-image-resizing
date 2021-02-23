@@ -21,5 +21,18 @@ async function handleRequest(request) {
     base64 += String.fromCharCode(byte);
   });
   base64 = btoa(base64);
-  return new Response(base64);
+
+  console.log(JSON.stringify('trying to read image'));
+  const returnedImage = await Jimp.read(Buffer.from(base64, 'base64'))
+    .then((image) => {
+      console.log(image.bitmap.width);
+      return image;
+    })
+    .catch((err) => {
+      console.log(err);
+    });
+  const buffer = await returnedImage.getBufferAsync(Jimp.MIME_PNG);
+  return new Response(buffer, {
+    headers: { 'content-type': 'image/png' },
+  });
 }
