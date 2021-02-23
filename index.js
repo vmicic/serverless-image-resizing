@@ -1,3 +1,4 @@
+/* eslint-disable arrow-body-style */
 import Jimp from './jimp.min.js';
 import { defaultConfigs } from './config';
 
@@ -6,20 +7,28 @@ addEventListener('fetch', (event) => {
 });
 
 const applyThumbConfig = async (base64Image) => {
-  const returnImage = await Jimp.read(Buffer.from(base64Image, 'base64'))
+  return Jimp.read(Buffer.from(base64Image, 'base64'))
     .then((image) => {
-      console.log(JSON.stringify('Sucessfully read image'));
       const { width, height } = defaultConfigs.thumb;
       return image.cover(width, height);
     })
     .catch((err) => {
       console.log(err);
     });
-  return returnImage;
+};
+
+const applySmallConfig = async (base64Image) => {
+  return Jimp.read(Buffer.from(base64Image, 'base64'))
+    .then((image) => {
+      const { width, height } = defaultConfigs.small;
+      return image.contain(width, height);
+    })
+    .catch((err) => {
+      console.log(err);
+    });
 };
 
 async function handleRequest(request) {
-  console.log(JSON.stringify('got request'));
   try {
     // eslint-disable-next-line no-undef
     const aws = new aws4fetch.AwsClient({
@@ -28,7 +37,7 @@ async function handleRequest(request) {
     });
 
     const imagePath =
-      'https://vukasinsbucket.s3.eu-central-1.amazonaws.com/test.png';
+      'https://vukasinsbucket.s3.eu-central-1.amazonaws.com/squarenumbers.jpg';
     const response = await aws.fetch(imagePath);
     let base64Image = '';
     new Uint8Array(await response.arrayBuffer()).forEach((byte) => {
@@ -38,19 +47,19 @@ async function handleRequest(request) {
 
     let image;
     const segments = request.url.split('/');
-    console.log(JSON.stringify('checking if default config matches'));
-    if (segments[5] === 'thumb') {
-      console.log(JSON.stringify('Applying thumb config'));
-      try {
-        image = await applyThumbConfig(base64Image);
-      } catch (err) {
-        console.log(err);
-      }
+
+    const config = segments[5];
+    if (config === 'thumb') {
+      image = await applyThumbConfig(base64Image);
     }
 
-    const buffer = await image.getBufferAsync(Jimp.MIME_PNG);
+    if (config === 'small') {
+      image = await applySmallConfig(base64Image);
+    }
+
+    const buffer = await image.getBufferAsync(Jimp.MIME_JPEG);
     return new Response(buffer, {
-      headers: { 'content-type': 'image/png' },
+      headers: { 'content-type': 'image/jpeg' },
     });
   } catch (err) {
     console.log(err);
