@@ -15,7 +15,11 @@ async function handleRequest(request) {
 
   const imagePath =
     'https://vukasinsbucket.s3.eu-central-1.amazonaws.com/test.png';
-  console.log(JSON.stringify('Trying to get image from S3'));
   const response = await aws.fetch(imagePath);
-  return response;
+  let base64 = '';
+  new Uint8Array(await response.arrayBuffer()).forEach((byte) => {
+    base64 += String.fromCharCode(byte);
+  });
+  base64 = btoa(base64);
+  return new Response(base64);
 }
