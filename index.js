@@ -1,60 +1,45 @@
-/* eslint-disable arrow-body-style */
 import Jimp from './jimp.min.js';
-import { defaultConfigs } from './config';
+import {
+  applyThumbConfig,
+  applySmallConfig,
+  applyMediumConfig,
+  applyLargeConfig,
+  applyHd10808Config,
+} from './defaultConfigs';
 
 addEventListener('fetch', (event) => {
   event.respondWith(handleRequest(event.request));
 });
 
-const applyThumbConfig = async (base64Image) => {
-  return Jimp.read(Buffer.from(base64Image, 'base64'))
-    .then((image) => {
-      const { width, height } = defaultConfigs.thumb;
-      return image.cover(width, height);
-    })
-    .catch((err) => {
-      console.log(err);
-    });
-};
+const applyUrlConfig = async (urlConfig, base64Image) => {
+  const configParts = urlConfig.split(',');
+  const config = {};
+  configParts.forEach((part) => {
+    const keyValue = part.split('=');
+    const key = keyValue[0];
+    const value = keyValue[1];
+    config[key] = value;
+  });
 
-const applySmallConfig = async (base64Image) => {
+  console.log(JSON.stringify(config));
   return Jimp.read(Buffer.from(base64Image, 'base64'))
     .then((image) => {
-      const { width, height } = defaultConfigs.small;
-      return image.contain(width, height);
-    })
-    .catch((err) => {
-      console.log(err);
-    });
-};
+      if ('w' in config || 'width' in config) {
+        const width = +config.w || +config.width;
+        if ('h' in config || 'height' in config) {
+          const height = +config.h || +config.height;
+          image.resize(width, height);
+        } else {
+          image.resize(width, Jimp.AUTO);
+        }
+      }
 
-const applyMediumConfig = async (base64Image) => {
-  return Jimp.read(Buffer.from(base64Image, 'base64'))
-    .then((image) => {
-      const { width, height } = defaultConfigs.medium;
-      return image.contain(width, height);
-    })
-    .catch((err) => {
-      console.log(err);
-    });
-};
+      if ('h' in config || 'height' in config) {
+        const height = +config.h || +config.height;
+        image.resize(Jimp.AUTO, height);
+      }
 
-const applyLargeConfig = async (base64Image) => {
-  return Jimp.read(Buffer.from(base64Image, 'base64'))
-    .then((image) => {
-      const { width, height } = defaultConfigs.large;
-      return image.contain(width, height);
-    })
-    .catch((err) => {
-      console.log(err);
-    });
-};
-
-const applyHd10808Config = async (base64Image) => {
-  return Jimp.read(Buffer.from(base64Image, 'base64'))
-    .then((image) => {
-      const { width, height } = defaultConfigs.hd1080;
-      return image.contain(width, height);
+      return image;
     })
     .catch((err) => {
       console.log(err);
@@ -84,23 +69,19 @@ async function handleRequest(request) {
     const config = segments[5];
     if (config === 'thumb') {
       image = await applyThumbConfig(base64Image);
-    }
-
-    if (config === 'small') {
+    } else if (config === 'small') {
       image = await applySmallConfig(base64Image);
-    }
-
-    if (config === 'medium') {
+    } else if (config === 'medium') {
       image = await applyMediumConfig(base64Image);
-    }
-
-    if (config === 'large') {
+    } else if (config === 'large') {
       image = await applyLargeConfig(base64Image);
+    } else if (config === 'hd1080') {
+      image = await applyHd10808Config(base64Image);
+    } else {
+      image = await applyUrlConfig(config, base64Image);
     }
 
-    if (config === 'hd1080') {
-      image = await applyHd10808Config(base64Image);
-    }
+    // return new Response('hello');
 
     const buffer = await image.getBufferAsync(Jimp.MIME_JPEG);
     return new Response(buffer, {
