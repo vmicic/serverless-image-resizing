@@ -44,6 +44,21 @@ const applyUrlConfig = async (urlConfig, base64Image) => {
             requestHeight > originalHeight ? originalHeight : requestHeight;
           image.contain(newWidth, newHeight);
         }
+
+        if (config.fit === 'crop') {
+          const originalWidth = image.bitmap.width;
+          const originalHeight = image.bitmap.height;
+          if (originalWidth > requestWidth && originalHeight > requestHeight) {
+            image.contain(requestWidth, requestHeight);
+          } else {
+            image.cover(requestWidth, requestHeight);
+          }
+        }
+
+        if (config.fit === 'pad') {
+          image.contain(requestWidth, requestHeight);
+          image.background(0xffffffff);
+        }
       } else {
         if ('w' in config || 'width' in config) {
           const width = +config.w || +config.width;
@@ -59,6 +74,10 @@ const applyUrlConfig = async (urlConfig, base64Image) => {
           const height = +config.h || +config.height;
           image.resize(Jimp.AUTO, height);
         }
+      }
+      if ('q' in config || 'quality' in config) {
+        const quality = +config.q || +config.quality;
+        image.quality(quality);
       }
 
       if ('dpr' in config) {
