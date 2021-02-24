@@ -24,19 +24,46 @@ const applyUrlConfig = async (urlConfig, base64Image) => {
   console.log(JSON.stringify(config));
   return Jimp.read(Buffer.from(base64Image, 'base64'))
     .then((image) => {
-      if ('w' in config || 'width' in config) {
-        const width = +config.w || +config.width;
+      if ('fit' in config) {
+        const requestWidth = +config.w || +config.width;
+        const requestHeight = +config.h || +config.height;
+        if (config.fit === 'cover') {
+          image.cover(requestWidth, requestHeight);
+        }
+
+        if (config.fit === 'contain') {
+          image.contain(requestWidth, requestHeight);
+        }
+
+        if (config.fit === 'scale-down') {
+          const originalWidth = image.bitmap.width;
+          const originalHeight = image.bitmap.height;
+          const newWidth =
+            requestWidth > originalWidth ? originalWidth : requestWidth;
+          const newHeight =
+            requestHeight > originalHeight ? originalHeight : requestHeight;
+          image.contain(newWidth, newHeight);
+        }
+      } else {
+        if ('w' in config || 'width' in config) {
+          const width = +config.w || +config.width;
+          if ('h' in config || 'height' in config) {
+            const height = +config.h || +config.height;
+            image.resize(width, height);
+          } else {
+            image.resize(width, Jimp.AUTO);
+          }
+        }
+
         if ('h' in config || 'height' in config) {
           const height = +config.h || +config.height;
-          image.resize(width, height);
-        } else {
-          image.resize(width, Jimp.AUTO);
+          image.resize(Jimp.AUTO, height);
         }
       }
 
-      if ('h' in config || 'height' in config) {
-        const height = +config.h || +config.height;
-        image.resize(Jimp.AUTO, height);
+      if ('dpr' in config) {
+        const ratio = +config.dpr;
+        image.scale(ratio);
       }
 
       return image;

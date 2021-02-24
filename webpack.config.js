@@ -7,7 +7,6 @@ module.exports = {
   mode: 'production',
   plugins: [
     new webpack.ProvidePlugin({
-      _: 'lodash',
       aws4fetch: 'aws4fetch',
     }),
   ],

@@ -17,7 +17,6 @@
   },
   "dependencies": {
     "aws4fetch": "^1.0.13",
-    "lodash": "^4.17.20",
     "webpack": "^4.46.0"
   }
 }
