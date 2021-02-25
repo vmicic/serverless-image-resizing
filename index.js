@@ -210,6 +210,35 @@ const applyUrlConfig = async (urlConfig, base64Image) => {
     });
 };
 
+const processImage = async (urlConfig, base64Image) => {
+  let image;
+  if (urlConfig === 'thumb') {
+    image = await applyThumbConfig(base64Image);
+  } else if (urlConfig === 'small') {
+    image = await applySmallConfig(base64Image);
+  } else if (urlConfig === 'medium') {
+    image = await applyMediumConfig(base64Image);
+  } else if (urlConfig === 'large') {
+    image = await applyLargeConfig(base64Image);
+  } else if (urlConfig === 'hd1080') {
+    image = await applyHd10808Config(base64Image);
+  } else {
+    image = await applyUrlConfig(urlConfig, base64Image);
+  }
+
+  return image;
+};
+
+const getImageFromS3 = async (url, aws) => {
+  const response = await aws.fetch(url);
+  let base64Image = '';
+  new Uint8Array(await response.arrayBuffer()).forEach((byte) => {
+    base64Image += String.fromCharCode(byte);
+  });
+  base64Image = btoa(base64Image);
+  return base64Image;
+};
+
 async function handleRequest(request) {
   try {
     // eslint-disable-next-line no-undef
@@ -220,32 +249,11 @@ async function handleRequest(request) {
 
     const imagePath =
       'https://vukasinsbucket.s3.eu-central-1.amazonaws.com/squarenumbers.jpg';
-    const response = await aws.fetch(imagePath);
-    let base64Image = '';
-    new Uint8Array(await response.arrayBuffer()).forEach((byte) => {
-      base64Image += String.fromCharCode(byte);
-    });
-    base64Image = btoa(base64Image);
+    const base64Image = await getImageFromS3(imagePath, aws);
 
-    let image;
     const segments = request.url.split('/');
-
     const urlConfig = segments[5];
-    if (urlConfig === 'thumb') {
-      image = await applyThumbConfig(base64Image);
-    } else if (urlConfig === 'small') {
-      image = await applySmallConfig(base64Image);
-    } else if (urlConfig === 'medium') {
-      image = await applyMediumConfig(base64Image);
-    } else if (urlConfig === 'large') {
-      image = await applyLargeConfig(base64Image);
-    } else if (urlConfig === 'hd1080') {
-      image = await applyHd10808Config(base64Image);
-    } else {
-      image = await applyUrlConfig(urlConfig, base64Image);
-    }
-
-    // return new Response('hello');
+    const image = await processImage(urlConfig, base64Image);
 
     const buffer = await image.getBufferAsync(Jimp.MIME_JPEG);
     return new Response(buffer, {
