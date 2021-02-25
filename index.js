@@ -18,26 +18,26 @@ const getOverlayPosition = (
   overlayWidth,
   overlayHeight,
 ) => {
-  let width = 0;
-  let height = 0;
+  let overlayWidthPosition = 0;
+  let overlayHeightPosition = 0;
   if ('ot' in config || 'overlay_top' in config) {
-    height = config.ot ? +config.ot : +config.overlay_top;
+    overlayHeightPosition = config.ot ? +config.ot : +config.overlay_top;
   }
 
   if ('ob' in config || 'overlay_bottom' in config) {
     const overlayBottom = config.ob ? +config.ob : +config.overlay_bottom;
-    height = imageHeight - overlayBottom - overlayHeight;
+    overlayHeightPosition = imageHeight - overlayBottom - overlayHeight;
   }
 
   if ('ol' in config || 'overlay_left' in config) {
-    width = config.ol ? +config.ol : +config.overlay_left;
+    overlayWidthPosition = config.ol ? +config.ol : +config.overlay_left;
   }
 
   if ('or' in config || 'overlay_right' in config) {
     const overlayRight = config.or ? +config.or : +config.overlay_right;
-    width = imageWidth - overlayRight - overlayWidth;
+    overlayWidthPosition = imageWidth - overlayRight - overlayWidth;
   }
-  return { width, height };
+  return { overlayWidthPosition, overlayHeightPosition };
 };
 
 const applyUrlConfig = async (urlConfig, base64Image) => {
@@ -65,7 +65,11 @@ const applyUrlConfig = async (urlConfig, base64Image) => {
   const overlayImage = await Jimp.read(
     Buffer.from(base64OverlayImage, 'base64'),
   );
-  const overylayWidth = overlayImage.bitmap.width;
+  if ('overlay_rotate' in config) {
+    const rotationDegrees = +config.overlay_rotate;
+    overlayImage.rotate(rotationDegrees);
+  }
+  const overlayWidth = overlayImage.bitmap.width;
   const overlayHeight = overlayImage.bitmap.height;
 
   return Jimp.read(Buffer.from(base64Image, 'base64'))
@@ -141,14 +145,51 @@ const applyUrlConfig = async (urlConfig, base64Image) => {
               : +config.overlay_opacity;
             options.opacitySource = overlayOpacity;
           }
-          const { width, height } = getOverlayPosition(
+          const imageWidth = image.bitmap.width;
+          const imageHeight = image.bitmap.height;
+          const {
+            overlayWidthPosition,
+            overlayHeightPosition,
+          } = getOverlayPosition(
             config,
-            image.bitmap.width,
-            image.bitmap.height,
-            overylayWidth,
+            imageWidth,
+            imageHeight,
+            overlayWidth,
             overlayHeight,
           );
-          image.composite(overlayImage, width, height, options);
+
+          if ('overlay_repeat' in config) {
+            const numberOfOverlaysWidth =
+              Math.round(imageWidth / overlayWidth) + 1;
+            const numberOfOverlaysHeight =
+              Math.round(imageHeight / overlayHeight) + 1;
+
+            let width = overlayWidthPosition;
+            let height = overlayHeightPosition;
+
+            if (config.overlay_repeat === 'true') {
+              for (let i = 0; i <= numberOfOverlaysWidth; i += 1) {
+                for (let j = 0; j <= numberOfOverlaysHeight; j += 1) {
+                  image.composite(overlayImage, width, height, options);
+                  height += overlayHeight;
+                }
+                height = overlayHeightPosition;
+                width += overlayWidth;
+              }
+            } else if (config.overlay_repeat === 'x') {
+              for (let i = 0; i < numberOfOverlaysWidth; i += 1) {
+                image.composite(overlayImage, width, height, options);
+                width += overlayWidth;
+              }
+            } else if (config.overlay_repeat === 'y') {
+              for (let i = 0; i < numberOfOverlaysHeight; i += 1) {
+                image.composite(overlayImage, width, height, options);
+                height += overlayHeight;
+              }
+            }
+          }
+
+          // image.composite(overlayImage, width, height, options);
         }
       }
 
