@@ -40,7 +40,7 @@ const getOverlayPosition = (
   return { overlayWidthPosition, overlayHeightPosition };
 };
 
-const applyUrlConfig = async (urlConfig, base64Image) => {
+const getConfigObjects = (urlConfig) => {
   const configParts = urlConfig.split(',');
   const config = {};
   configParts.forEach((part) => {
@@ -49,6 +49,11 @@ const applyUrlConfig = async (urlConfig, base64Image) => {
     const value = keyValue[1];
     config[key] = value;
   });
+  return config;
+};
+
+const applyUrlConfig = async (urlConfig, base64Image) => {
+  const config = getConfigObjects(urlConfig);
 
   let base64OverlayImage = '';
   if ('o' in config || 'overlay' in config) {
@@ -187,9 +192,14 @@ const applyUrlConfig = async (urlConfig, base64Image) => {
                 height += overlayHeight;
               }
             }
+          } else {
+            image.composite(
+              overlayImage,
+              overlayWidthPosition,
+              overlayHeightPosition,
+              options,
+            );
           }
-
-          // image.composite(overlayImage, width, height, options);
         }
       }
 
@@ -208,16 +218,6 @@ async function handleRequest(request) {
       secretAccessKey: 'lFdHWD2J5nT967YINvPdD7/qdfIi3KWid2guVY/N',
     });
 
-    const overlayImageResponse = await fetch(
-      'https://p1.hiclipart.com/preview/318/447/663/alienware-invader-icons-small-sample-package-alienware-invader-icon-17-png-icon.jpg',
-    );
-
-    let base64OverlayImage = '';
-    new Uint8Array(await overlayImageResponse.arrayBuffer()).forEach((byte) => {
-      base64OverlayImage += String.fromCharCode(byte);
-    });
-    base64OverlayImage = btoa(base64OverlayImage);
-
     const imagePath =
       'https://vukasinsbucket.s3.eu-central-1.amazonaws.com/squarenumbers.jpg';
     const response = await aws.fetch(imagePath);
@@ -230,19 +230,19 @@ async function handleRequest(request) {
     let image;
     const segments = request.url.split('/');
 
-    const config = segments[5];
-    if (config === 'thumb') {
+    const urlConfig = segments[5];
+    if (urlConfig === 'thumb') {
       image = await applyThumbConfig(base64Image);
-    } else if (config === 'small') {
+    } else if (urlConfig === 'small') {
       image = await applySmallConfig(base64Image);
-    } else if (config === 'medium') {
+    } else if (urlConfig === 'medium') {
       image = await applyMediumConfig(base64Image);
-    } else if (config === 'large') {
+    } else if (urlConfig === 'large') {
       image = await applyLargeConfig(base64Image);
-    } else if (config === 'hd1080') {
+    } else if (urlConfig === 'hd1080') {
       image = await applyHd10808Config(base64Image);
     } else {
-      image = await applyUrlConfig(config, base64Image);
+      image = await applyUrlConfig(urlConfig, base64Image);
     }
 
     // return new Response('hello');
