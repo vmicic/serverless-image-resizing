@@ -52,7 +52,7 @@ List of query string options:
 "quality" or "q" = Compression level of image
 "dpr" = Device pixel ratio, default 1, to multiply width/height for higher DPI devices
 "fit" = Affects interpretation of width and height. All resizing modes preserve aspect ratio.
- - "scale-down"
+ - "scale-down"¡
  - "contain"
  - "cover"
  - "crop"

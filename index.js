@@ -1,4 +1,6 @@
 import Jimp from './jimp.min.js';
+import sjcl from './sjcl-1.0.8.min.js';
+
 import {
   applyThumbConfig,
   applySmallConfig,
@@ -239,6 +241,41 @@ const getImageFromS3 = async (url, aws) => {
   return base64Image;
 };
 
+const invalidConfig = (config) => {
+  if (!('o' in config || 'overlay' in config)) {
+    return true;
+  }
+  return false;
+};
+
+const invalidSignature = (urlConfig) => {
+  const decodedUrl = decodeURIComponent(urlConfig);
+  const configSegments = decodedUrl.split(',');
+  let urlWithoutSignature = '';
+  let signature;
+  configSegments.forEach((segment) => {
+    const keyValue = segment.split('=');
+    const [key, value] = keyValue;
+    if (key !== 's') {
+      if (urlWithoutSignature === '') {
+        urlWithoutSignature = segment;
+      } else {
+        urlWithoutSignature = `${urlWithoutSignature},${segment}`;
+      }
+    } else {
+      signature = value;
+    }
+  });
+  const key = 'secret';
+  // eslint-disable-next-line new-cap
+  const hmac = new sjcl.misc.hmac(sjcl.codec.utf8String.toBits(key));
+  const configHash = sjcl.codec.hex.fromBits(hmac.encrypt(urlWithoutSignature));
+  if (configHash === signature) {
+    return false;
+  }
+  return true;
+};
+
 async function handleRequest(request) {
   try {
     // eslint-disable-next-line no-undef
@@ -247,12 +284,21 @@ async function handleRequest(request) {
       secretAccessKey: 'lFdHWD2J5nT967YINvPdD7/qdfIi3KWid2guVY/N',
     });
 
+    const segments = request.url.split('/');
+    const urlConfig = segments[5];
+    const config = getConfigObjects(urlConfig);
+    if (invalidConfig(config)) {
+      return new Response('Invalid url config.', { status: 400 });
+    }
+
+    if (invalidSignature(urlConfig)) {
+      return new Response('Signature in URL is invalid.');
+    }
+
     const imagePath =
       'https://vukasinsbucket.s3.eu-central-1.amazonaws.com/squarenumbers.jpg';
     const base64Image = await getImageFromS3(imagePath, aws);
 
-    const segments = request.url.split('/');
-    const urlConfig = segments[5];
     const image = await processImage(urlConfig, base64Image);
 
     const buffer = await image.getBufferAsync(Jimp.MIME_JPEG);
