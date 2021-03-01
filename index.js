@@ -282,7 +282,12 @@ async function handleRequest(request) {
     const aws = new aws4fetch.AwsClient({
       accessKeyId: 'AKIA3SDE3YZN27ULMYYJ',
       secretAccessKey: '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',
+      region: 'eu-central-1',
     });
+
+    // const response = await aws.fetch(
+    //   'https://vukasinsbucket.s3.amazonaws.com/squarenumbers.jpg',
+    // );
 
     const segments = request.url.split('/');
     const urlConfig = segments[5];
