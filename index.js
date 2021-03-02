@@ -236,7 +236,7 @@ const invalidConfig = (config) => {
   return false;
 };
 
-const invalidSignature = (urlConfig) => {
+const invalidSignature = (urlConfig, hashKey) => {
   const decodedUrl = decodeURIComponent(urlConfig);
   const configSegments = decodedUrl.split(',');
   let urlWithoutSignature = '';
@@ -254,9 +254,9 @@ const invalidSignature = (urlConfig) => {
       signature = value;
     }
   });
-  const key = 'secret';
+  console.log(JSON.stringify(signature));
   // eslint-disable-next-line new-cap
-  const hmac = new sjcl.misc.hmac(sjcl.codec.utf8String.toBits(key));
+  const hmac = new sjcl.misc.hmac(sjcl.codec.utf8String.toBits(hashKey));
   const configHash = sjcl.codec.hex.fromBits(hmac.encrypt(urlWithoutSignature));
   if (configHash === signature) {
     return false;
@@ -356,9 +356,10 @@ async function handleRequest(request) {
   }
 
   try {
-    // if (invalidSignature(imageUrlConfig)) {
-    //   return new Response('Signature in URL is invalid.');
-    // }
+    const hashKey = config.query_secret;
+    if (invalidSignature(imageUrlConfig, hashKey)) {
+      return new Response('Signature in URL is invalid.');
+    }
 
     const imageConfig = getCompleteConfig(imageUrlConfig, defaultImageConfig);
     if (invalidConfig(imageConfig)) {
