@@ -42,9 +42,9 @@ const getOverlayPosition = (
   return { overlayWidthPosition, overlayHeightPosition };
 };
 
-const getConfigObjects = (urlConfig) => {
+const getCompleteConfig = (urlConfig, defaultConfig) => {
   const configParts = urlConfig.split(',');
-  const config = {};
+  const config = { ...defaultConfig };
   configParts.forEach((part) => {
     const keyValue = part.split('=');
     const key = keyValue[0];
@@ -54,9 +54,7 @@ const getConfigObjects = (urlConfig) => {
   return config;
 };
 
-const applyUrlConfig = async (urlConfig, base64Image) => {
-  const config = getConfigObjects(urlConfig);
-
+const applyUrlConfig = async (urlConfig, base64Image, config) => {
   let base64OverlayImage = '';
   if ('o' in config || 'overlay' in config) {
     let uri = config.o || config.overlay;
@@ -276,35 +274,77 @@ const invalidSignature = (urlConfig) => {
   return true;
 };
 
+const getDefaultConfig = async (identifier) => {
+  const configUrl = `https://api.estatebud.com/v1/contentDelivery/${identifier}`;
+  const imageConfig = {};
+  await fetch(configUrl, {
+    headers: {
+      Authorization: 'FmHQ863M0$f0MZqV?orn7q6hm&u&CP3IKMCUPKnsbD9MvXgkUK',
+    },
+  })
+    .then((response) => response.json())
+    .then((data) => {
+      if ('defaults' in data) {
+        if ('overlay' in data.defaults) {
+          Object.entries(data.defaults.overlay).forEach((entry) => {
+            const [key, value] = entry;
+            if (key === 'url') {
+              imageConfig['o'] = value;
+            } else {
+              imageConfig[`overlay_${key}`] = value;
+            }
+          });
+        }
+        Object.entries(data.defaults).forEach((entry) => {
+          const [key, value] = entry;
+          if (key !== 'overlay') {
+            imageConfig[key] = value;
+          }
+        });
+      }
+    });
+  return imageConfig;
+};
+
 async function handleRequest(request) {
+  if (request.method !== 'GET') {
+    return new Response('Expected GET method', { status: 400 });
+  }
+  const { url } = request;
+  const segments = url.split('/');
+  if (segments.length !== 8) {
+    return new Response('Invalid url', { status: 400 });
+  }
+
+  const bucket = segments[4];
+  const identifier = segments[5];
+  const urlConfig = segments[6];
+  const file = segments[7];
+
   try {
-    // eslint-disable-next-line no-undef
     const aws = new aws4fetch.AwsClient({
-      accessKeyId: 'AKIA3SDE3YZN27ULMYYJ',
-      secretAccessKey: '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',
-      region: 'eu-central-1',
+      accessKeyId: 'Htck7t@z9@',
+      secretAccessKey: '@6gbccF6X8!8dm5px#GP',
+      service: 's3',
     });
 
-    // const response = await aws.fetch(
-    //   'https://vukasinsbucket.s3.amazonaws.com/squarenumbers.jpg',
-    // );
-
-    const segments = request.url.split('/');
-    const urlConfig = segments[5];
-    const config = getConfigObjects(urlConfig);
-    if (invalidConfig(config)) {
-      return new Response('Invalid url config.', { status: 400 });
-    }
+    const response = await aws.fetch(
+      'https://sandbox.estatebud.net/0nv/property1.jpg',
+    );
 
     if (invalidSignature(urlConfig)) {
       return new Response('Signature in URL is invalid.');
     }
 
+    const config = getCompleteConfig(urlConfig, defaultConfig);
+    if (invalidConfig(config)) {
+      return new Response('Invalid url config.', { status: 400 });
+    }
+
     const imagePath =
       'https://vukasinsbucket.s3.eu-central-1.amazonaws.com/squarenumbers.jpg';
     const base64Image = await getImageFromS3(imagePath, aws);
-
-    const image = await processImage(urlConfig, base64Image);
+    const image = await processImage(urlConfig, base64Image, config);
 
     const buffer = await image.getBufferAsync(Jimp.MIME_JPEG);
     return new Response(buffer, {
