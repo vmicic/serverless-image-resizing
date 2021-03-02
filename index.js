@@ -54,7 +54,7 @@ const getCompleteConfig = (urlConfig, defaultConfig) => {
   return config;
 };
 
-const applyUrlConfig = async (urlConfig, base64Image, config) => {
+const applyUrlConfig = async (base64Image, config) => {
   let base64OverlayImage = '';
   if ('o' in config || 'overlay' in config) {
     let uri = config.o || config.overlay;
@@ -210,33 +210,23 @@ const applyUrlConfig = async (urlConfig, base64Image, config) => {
     });
 };
 
-const processImage = async (urlConfig, base64Image) => {
+const processImage = async (imageUrlConfig, base64Image, config) => {
   let image;
-  if (urlConfig === 'thumb') {
+  if (imageUrlConfig === 'thumb') {
     image = await applyThumbConfig(base64Image);
-  } else if (urlConfig === 'small') {
+  } else if (imageUrlConfig === 'small') {
     image = await applySmallConfig(base64Image);
-  } else if (urlConfig === 'medium') {
+  } else if (imageUrlConfig === 'medium') {
     image = await applyMediumConfig(base64Image);
-  } else if (urlConfig === 'large') {
+  } else if (imageUrlConfig === 'large') {
     image = await applyLargeConfig(base64Image);
-  } else if (urlConfig === 'hd1080') {
+  } else if (imageUrlConfig === 'hd1080') {
     image = await applyHd10808Config(base64Image);
   } else {
-    image = await applyUrlConfig(urlConfig, base64Image);
+    image = await applyUrlConfig(base64Image, config);
   }
 
   return image;
-};
-
-const getImageFromS3 = async (url, aws) => {
-  const response = await aws.fetch(url);
-  let base64Image = '';
-  new Uint8Array(await response.arrayBuffer()).forEach((byte) => {
-    base64Image += String.fromCharCode(byte);
-  });
-  base64Image = btoa(base64Image);
-  return base64Image;
 };
 
 const invalidConfig = (config) => {
@@ -274,36 +264,74 @@ const invalidSignature = (urlConfig) => {
   return true;
 };
 
-const getDefaultConfig = async (identifier) => {
+const getDefaultConfig = (config) => {
+  const defaultImageConfig = {};
+  if ('defaults' in config) {
+    if ('overlay' in config.defaults) {
+      Object.entries(config.defaults.overlay).forEach((entry) => {
+        const [key, value] = entry;
+        if (key === 'url') {
+          defaultImageConfig['o'] = value;
+        } else {
+          defaultImageConfig[`overlay_${key}`] = value;
+        }
+      });
+    }
+  }
+
+  Object.entries(config.defaults).forEach((entry) => {
+    const [key, value] = entry;
+    if (key !== 'overlay') {
+      defaultImageConfig[key] = value;
+    }
+  });
+
+  return defaultImageConfig;
+};
+
+const getConfig = async (identifier) => {
   const configUrl = `https://api.estatebud.com/v1/contentDelivery/${identifier}`;
-  const imageConfig = {};
-  await fetch(configUrl, {
+  const responseJson = await fetch(configUrl, {
     headers: {
       Authorization: 'FmHQ863M0$f0MZqV?orn7q6hm&u&CP3IKMCUPKnsbD9MvXgkUK',
     },
-  })
-    .then((response) => response.json())
-    .then((data) => {
-      if ('defaults' in data) {
-        if ('overlay' in data.defaults) {
-          Object.entries(data.defaults.overlay).forEach((entry) => {
-            const [key, value] = entry;
-            if (key === 'url') {
-              imageConfig['o'] = value;
-            } else {
-              imageConfig[`overlay_${key}`] = value;
-            }
-          });
-        }
-        Object.entries(data.defaults).forEach((entry) => {
-          const [key, value] = entry;
-          if (key !== 'overlay') {
-            imageConfig[key] = value;
-          }
-        });
-      }
-    });
-  return imageConfig;
+  }).then((response) => response.json());
+  return responseJson;
+};
+
+const getImage = async (config, bucket, file) => {
+  if ('storage_buckets' in config) {
+    if (bucket in config.storage_buckets) {
+      const aws = new aws4fetch.AwsClient({
+        accessKeyId: config.storage_buckets[bucket].access.read.key,
+        secretAccessKey: config.storage_buckets[bucket].access.read.secret,
+        service: 's3',
+      });
+      const url = `https://${config.storage_buckets[bucket].host}/${bucket}/${file}`;
+      const response = await aws.fetch(url);
+      let base64Image = '';
+      new Uint8Array(await response.arrayBuffer()).forEach((byte) => {
+        base64Image += String.fromCharCode(byte);
+      });
+      base64Image = btoa(base64Image);
+      return base64Image;
+    }
+  }
+  return undefined;
+};
+
+const getUrlParams = (segments) => {
+  const bucket = segments[4];
+  const identifier = segments[5];
+  const imageUrlConfig = segments[6];
+  const file = segments[7];
+
+  return {
+    bucket,
+    identifier,
+    imageUrlConfig,
+    file,
+  };
 };
 
 async function handleRequest(request) {
@@ -316,36 +344,28 @@ async function handleRequest(request) {
     return new Response('Invalid url', { status: 400 });
   }
 
-  const bucket = segments[4];
-  const identifier = segments[5];
-  const urlConfig = segments[6];
-  const file = segments[7];
+  const { bucket, identifier, imageUrlConfig, file } = getUrlParams(segments);
+
+  const config = await getConfig(identifier);
+  const defaultImageConfig = getDefaultConfig(config);
+  const base64Image = await getImage(config, bucket, file);
+  if (base64Image === undefined) {
+    return new Response('Could not get a requested picture from bucket', {
+      status: 400,
+    });
+  }
 
   try {
-    const aws = new aws4fetch.AwsClient({
-      accessKeyId: 'Htck7t@z9@',
-      secretAccessKey: '@6gbccF6X8!8dm5px#GP',
-      service: 's3',
-    });
+    // if (invalidSignature(imageUrlConfig)) {
+    //   return new Response('Signature in URL is invalid.');
+    // }
 
-    const response = await aws.fetch(
-      'https://sandbox.estatebud.net/0nv/property1.jpg',
-    );
-
-    if (invalidSignature(urlConfig)) {
-      return new Response('Signature in URL is invalid.');
+    const imageConfig = getCompleteConfig(imageUrlConfig, defaultImageConfig);
+    if (invalidConfig(imageConfig)) {
+      return new Response('Invalid image config.', { status: 400 });
     }
 
-    const config = getCompleteConfig(urlConfig, defaultConfig);
-    if (invalidConfig(config)) {
-      return new Response('Invalid url config.', { status: 400 });
-    }
-
-    const imagePath =
-      'https://vukasinsbucket.s3.eu-central-1.amazonaws.com/squarenumbers.jpg';
-    const base64Image = await getImageFromS3(imagePath, aws);
-    const image = await processImage(urlConfig, base64Image, config);
-
+    const image = await processImage(imageUrlConfig, base64Image, imageConfig);
     const buffer = await image.getBufferAsync(Jimp.MIME_JPEG);
     return new Response(buffer, {
       headers: { 'content-type': 'image/jpeg' },
