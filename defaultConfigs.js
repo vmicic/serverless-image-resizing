@@ -1,6 +1,6 @@
 /* eslint-disable no-undef */
 /* eslint-disable arrow-body-style */
-import { defaultConfigs } from './configConstants';
+import { defaultConfigs } from './constants';
 
 export const applyThumbConfig = async (base64Image) => {
   return Jimp.read(Buffer.from(base64Image, 'base64'))

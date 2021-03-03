@@ -21,6 +21,9 @@ const defaultConfigs = {
   },
 };
 
+const configKvExpirationSeconds = 120;
+
 module.exports = {
   defaultConfigs,
+  expirationTtl: configKvExpirationSeconds,
 };

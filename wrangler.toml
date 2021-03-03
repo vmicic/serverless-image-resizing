@@ -4,4 +4,7 @@ account_id = "276c0c48feaf1703f340052038450e28"
 workers_dev = true
 route = ""
 zone_id = ""
+kv_namespaces = [ 
+	 { binding = "CONFIG", id = "6070d2e76e63465a81e2df32ff2fe752", preview_id = "da0b39a115344be8a57d823cdbd49c39" }
+]
 webpack_config = "webpack.config.js"

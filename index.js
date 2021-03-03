@@ -1,5 +1,6 @@
 import Jimp from './jimp.min.js';
 import sjcl from './sjcl-1.0.8.min.js';
+import { expirationTtl } from './constants';
 
 import {
   applyThumbConfig,
@@ -264,7 +265,7 @@ const invalidSignature = (urlConfig, hashKey) => {
   return true;
 };
 
-const getDefaultConfig = (config) => {
+const getDefaultImageConfig = (config) => {
   const defaultImageConfig = {};
   if ('defaults' in config) {
     if ('overlay' in config.defaults) {
@@ -289,7 +290,7 @@ const getDefaultConfig = (config) => {
   return defaultImageConfig;
 };
 
-const getConfig = async (identifier) => {
+const requestConfig = async (identifier) => {
   const configUrl = `https://api.estatebud.com/v1/contentDelivery/${identifier}`;
   const responseJson = await fetch(configUrl, {
     headers: {
@@ -334,20 +335,52 @@ const getUrlParams = (segments) => {
   };
 };
 
-async function handleRequest(request) {
+const checkRequest = (request) => {
+  let invalidRequest = false;
+  let response;
+
   if (request.method !== 'GET') {
-    return new Response('Expected GET method', { status: 400 });
+    invalidRequest = true;
+    response = new Response('Expected GET method.', { status: 400 });
+
+    return { invalidRequest, response };
   }
+
   const { url } = request;
   const segments = url.split('/');
   if (segments.length !== 8) {
-    return new Response('Invalid url', { status: 400 });
+    invalidRequest = true;
+    response = new Response('Invalid url', { status: 400 });
+
+    return { invalidRequest, response };
   }
 
+  return { invalidRequest };
+};
+
+const getConfig = async (identifier) => {
+  let config = JSON.parse(await CONFIG.get(identifier));
+  if (config === null) {
+    config = await requestConfig(identifier);
+    await CONFIG.put('kM6', JSON.stringify(config), {
+      expirationTtl,
+    });
+  }
+
+  return config;
+};
+
+async function handleRequest(request) {
+  const { invalidRequest, response } = checkRequest(request);
+  if (invalidRequest) {
+    return response;
+  }
+
+  const segments = request.url.split('/');
   const { bucket, identifier, imageUrlConfig, file } = getUrlParams(segments);
 
   const config = await getConfig(identifier);
-  const defaultImageConfig = getDefaultConfig(config);
+  const defaultImageConfig = getDefaultImageConfig(config);
   const base64Image = await getImage(config, bucket, file);
   if (base64Image === undefined) {
     return new Response('Could not get a requested picture from bucket', {
@@ -355,23 +388,22 @@ async function handleRequest(request) {
     });
   }
 
-  try {
-    const hashKey = config.query_secret;
-    if (invalidSignature(imageUrlConfig, hashKey)) {
-      return new Response('Signature in URL is invalid.');
-    }
-
-    const imageConfig = getCompleteConfig(imageUrlConfig, defaultImageConfig);
-    if (invalidConfig(imageConfig)) {
-      return new Response('Invalid image config.', { status: 400 });
-    }
-
-    const image = await processImage(imageUrlConfig, base64Image, imageConfig);
-    const buffer = await image.getBufferAsync(Jimp.MIME_JPEG);
-    return new Response(buffer, {
-      headers: { 'content-type': 'image/jpeg' },
-    });
-  } catch (err) {
-    console.log(err);
+  const hashKey = config.query_secret;
+  if (hashKey === undefined) {
+    return new Response('Hash key is missing from config.', { status: 404 });
   }
+  if (invalidSignature(imageUrlConfig, hashKey)) {
+    return new Response('Signature in URL is invalid.');
+  }
+
+  const imageConfig = getCompleteConfig(imageUrlConfig, defaultImageConfig);
+  if (invalidConfig(imageConfig)) {
+    return new Response('Invalid image config.', { status: 400 });
+  }
+
+  const image = await processImage(imageUrlConfig, base64Image, imageConfig);
+  const buffer = await image.getBufferAsync(Jimp.MIME_JPEG);
+  return new Response(buffer, {
+    headers: { 'content-type': 'image/jpeg' },
+  });
 }
