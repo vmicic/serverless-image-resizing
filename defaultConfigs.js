@@ -1,11 +1,11 @@
 /* eslint-disable no-undef */
 /* eslint-disable arrow-body-style */
-import { defaultConfigs } from './constants';
+import { DEFAULT_CONFIGS } from './constants';
 
 export const applyThumbConfig = async (base64Image) => {
   return Jimp.read(Buffer.from(base64Image, 'base64'))
     .then((image) => {
-      const { width, height } = defaultConfigs.thumb;
+      const { width, height } = DEFAULT_CONFIGS.thumb;
       return image.cover(width, height);
     })
     .catch((err) => {
@@ -16,7 +16,7 @@ export const applyThumbConfig = async (base64Image) => {
 export const applySmallConfig = async (base64Image) => {
   return Jimp.read(Buffer.from(base64Image, 'base64'))
     .then((image) => {
-      const { width, height } = defaultConfigs.small;
+      const { width, height } = DEFAULT_CONFIGS.small;
       return image.contain(width, height);
     })
     .catch((err) => {
@@ -27,7 +27,7 @@ export const applySmallConfig = async (base64Image) => {
 export const applyMediumConfig = async (base64Image) => {
   return Jimp.read(Buffer.from(base64Image, 'base64'))
     .then((image) => {
-      const { width, height } = defaultConfigs.medium;
+      const { width, height } = DEFAULT_CONFIGS.medium;
       return image.contain(width, height);
     })
     .catch((err) => {
@@ -38,7 +38,7 @@ export const applyMediumConfig = async (base64Image) => {
 export const applyLargeConfig = async (base64Image) => {
   return Jimp.read(Buffer.from(base64Image, 'base64'))
     .then((image) => {
-      const { width, height } = defaultConfigs.large;
+      const { width, height } = DEFAULT_CONFIGS.large;
       return image.contain(width, height);
     })
     .catch((err) => {
@@ -49,7 +49,7 @@ export const applyLargeConfig = async (base64Image) => {
 export const applyHd10808Config = async (base64Image) => {
   return Jimp.read(Buffer.from(base64Image, 'base64'))
     .then((image) => {
-      const { width, height } = defaultConfigs.hd1080;
+      const { width, height } = DEFAULT_CONFIGS.hd1080;
       return image.contain(width, height);
     })
     .catch((err) => {

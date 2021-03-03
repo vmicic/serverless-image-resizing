@@ -1,4 +1,4 @@
-const defaultConfigs = {
+const DEFAULT_CONFIGS = {
   thumb: {
     width: 398,
     height: 224,
@@ -21,9 +21,12 @@ const defaultConfigs = {
   },
 };
 
-const configKvExpirationSeconds = 120;
+const CONFIG_KV_EXPIRATION_SECONDS = 120;
+
+const CONFIG_AUTH_HEADER = 'FmHQ863M0$f0MZqV?orn7q6hm&u&CP3IKMCUPKnsbD9MvXgkUK';
 
 module.exports = {
-  defaultConfigs,
-  expirationTtl: configKvExpirationSeconds,
+  DEFAULT_CONFIGS,
+  CONFIG_KV_EXPIRATION_SECONDS,
+  CONFIG_AUTH_HEADER,
 };

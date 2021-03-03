@@ -1,47 +1,11 @@
 import Jimp from './jimp.min.js';
 import sjcl from './sjcl-1.0.8.min.js';
-import { expirationTtl } from './constants';
-
-import {
-  applyThumbConfig,
-  applySmallConfig,
-  applyMediumConfig,
-  applyLargeConfig,
-  applyHd10808Config,
-} from './defaultConfigs';
+import { CONFIG_KV_EXPIRATION_SECONDS, CONFIG_AUTH_HEADER } from './constants';
+import { processImage } from './imageFunctions';
 
 addEventListener('fetch', (event) => {
   event.respondWith(handleRequest(event.request));
 });
-
-const getOverlayPosition = (
-  config,
-  imageWidth,
-  imageHeight,
-  overlayWidth,
-  overlayHeight,
-) => {
-  let overlayWidthPosition = 0;
-  let overlayHeightPosition = 0;
-  if ('ot' in config || 'overlay_top' in config) {
-    overlayHeightPosition = config.ot ? +config.ot : +config.overlay_top;
-  }
-
-  if ('ob' in config || 'overlay_bottom' in config) {
-    const overlayBottom = config.ob ? +config.ob : +config.overlay_bottom;
-    overlayHeightPosition = imageHeight - overlayBottom - overlayHeight;
-  }
-
-  if ('ol' in config || 'overlay_left' in config) {
-    overlayWidthPosition = config.ol ? +config.ol : +config.overlay_left;
-  }
-
-  if ('or' in config || 'overlay_right' in config) {
-    const overlayRight = config.or ? +config.or : +config.overlay_right;
-    overlayWidthPosition = imageWidth - overlayRight - overlayWidth;
-  }
-  return { overlayWidthPosition, overlayHeightPosition };
-};
 
 const getCompleteConfig = (urlConfig, defaultConfig) => {
   const configParts = urlConfig.split(',');
@@ -53,181 +17,6 @@ const getCompleteConfig = (urlConfig, defaultConfig) => {
     config[key] = value;
   });
   return config;
-};
-
-const applyUrlConfig = async (base64Image, config) => {
-  let base64OverlayImage = '';
-  if ('o' in config || 'overlay' in config) {
-    let uri = config.o || config.overlay;
-    uri = decodeURIComponent(uri);
-    const overlayImageResponse = await fetch(uri);
-
-    new Uint8Array(await overlayImageResponse.arrayBuffer()).forEach((byte) => {
-      base64OverlayImage += String.fromCharCode(byte);
-    });
-    base64OverlayImage = btoa(base64OverlayImage);
-  }
-
-  const overlayImage = await Jimp.read(
-    Buffer.from(base64OverlayImage, 'base64'),
-  );
-  if ('overlay_rotate' in config) {
-    const rotationDegrees = +config.overlay_rotate;
-    overlayImage.rotate(rotationDegrees);
-  }
-  const overlayWidth = overlayImage.bitmap.width;
-  const overlayHeight = overlayImage.bitmap.height;
-
-  return Jimp.read(Buffer.from(base64Image, 'base64'))
-    .then((image) => {
-      if ('fit' in config) {
-        const requestWidth = config.w ? +config.w : +config.width;
-        const requestHeight = config.h ? +config.h : +config.height;
-        if (config.fit === 'cover') {
-          image.cover(requestWidth, requestHeight);
-        }
-
-        if (config.fit === 'contain') {
-          image.contain(requestWidth, requestHeight);
-        }
-
-        if (config.fit === 'scale-down') {
-          const originalWidth = image.bitmap.width;
-          const originalHeight = image.bitmap.height;
-          const newWidth =
-            requestWidth > originalWidth ? originalWidth : requestWidth;
-          const newHeight =
-            requestHeight > originalHeight ? originalHeight : requestHeight;
-          image.contain(newWidth, newHeight);
-        }
-
-        if (config.fit === 'crop') {
-          const originalWidth = image.bitmap.width;
-          const originalHeight = image.bitmap.height;
-          if (originalWidth > requestWidth && originalHeight > requestHeight) {
-            image.contain(requestWidth, requestHeight);
-          } else {
-            image.cover(requestWidth, requestHeight);
-          }
-        }
-
-        if (config.fit === 'pad') {
-          image.contain(requestWidth, requestHeight);
-          image.background(0xffffffff);
-        }
-      } else {
-        if ('w' in config || 'width' in config) {
-          const width = config.w ? +config.w : +config.width;
-          if ('h' in config || 'height' in config) {
-            const height = +config.h || +config.height;
-            image.resize(width, height);
-          } else {
-            image.resize(width, Jimp.AUTO);
-          }
-        }
-
-        if ('h' in config || 'height' in config) {
-          const height = config.h ? +config.h : +config.height;
-          image.resize(Jimp.AUTO, height);
-        }
-      }
-      if ('q' in config || 'quality' in config) {
-        const quality = config.q ? +config.q : +config.quality;
-        image.quality(quality);
-      }
-
-      if ('dpr' in config) {
-        const ratio = +config.dpr;
-        image.scale(ratio);
-      }
-
-      if ('o' in config || 'overlay' in config) {
-        const overlay = config.o ? +config.o : +config.overyaly;
-        if (overlay !== 'none') {
-          const options = {};
-          if ('oo' in config || 'overlay_opacity' in config) {
-            const overlayOpacity = config.oo
-              ? +config.oo
-              : +config.overlay_opacity;
-            options.opacitySource = overlayOpacity;
-          }
-          const imageWidth = image.bitmap.width;
-          const imageHeight = image.bitmap.height;
-          const {
-            overlayWidthPosition,
-            overlayHeightPosition,
-          } = getOverlayPosition(
-            config,
-            imageWidth,
-            imageHeight,
-            overlayWidth,
-            overlayHeight,
-          );
-
-          if ('overlay_repeat' in config) {
-            const numberOfOverlaysWidth =
-              Math.round(imageWidth / overlayWidth) + 1;
-            const numberOfOverlaysHeight =
-              Math.round(imageHeight / overlayHeight) + 1;
-
-            let width = overlayWidthPosition;
-            let height = overlayHeightPosition;
-
-            if (config.overlay_repeat === 'true') {
-              for (let i = 0; i <= numberOfOverlaysWidth; i += 1) {
-                for (let j = 0; j <= numberOfOverlaysHeight; j += 1) {
-                  image.composite(overlayImage, width, height, options);
-                  height += overlayHeight;
-                }
-                height = overlayHeightPosition;
-                width += overlayWidth;
-              }
-            } else if (config.overlay_repeat === 'x') {
-              for (let i = 0; i < numberOfOverlaysWidth; i += 1) {
-                image.composite(overlayImage, width, height, options);
-                width += overlayWidth;
-              }
-            } else if (config.overlay_repeat === 'y') {
-              for (let i = 0; i < numberOfOverlaysHeight; i += 1) {
-                image.composite(overlayImage, width, height, options);
-                height += overlayHeight;
-              }
-            }
-          } else {
-            image.composite(
-              overlayImage,
-              overlayWidthPosition,
-              overlayHeightPosition,
-              options,
-            );
-          }
-        }
-      }
-
-      return image;
-    })
-    .catch((err) => {
-      console.log(err);
-    });
-};
-
-const processImage = async (imageUrlConfig, base64Image, config) => {
-  let image;
-  if (imageUrlConfig === 'thumb') {
-    image = await applyThumbConfig(base64Image);
-  } else if (imageUrlConfig === 'small') {
-    image = await applySmallConfig(base64Image);
-  } else if (imageUrlConfig === 'medium') {
-    image = await applyMediumConfig(base64Image);
-  } else if (imageUrlConfig === 'large') {
-    image = await applyLargeConfig(base64Image);
-  } else if (imageUrlConfig === 'hd1080') {
-    image = await applyHd10808Config(base64Image);
-  } else {
-    image = await applyUrlConfig(base64Image, config);
-  }
-
-  return image;
 };
 
 const invalidConfig = (config) => {
@@ -255,7 +44,6 @@ const invalidSignature = (urlConfig, hashKey) => {
       signature = value;
     }
   });
-  console.log(JSON.stringify(signature));
   // eslint-disable-next-line new-cap
   const hmac = new sjcl.misc.hmac(sjcl.codec.utf8String.toBits(hashKey));
   const configHash = sjcl.codec.hex.fromBits(hmac.encrypt(urlWithoutSignature));
@@ -294,7 +82,7 @@ const requestConfig = async (identifier) => {
   const configUrl = `https://api.estatebud.com/v1/contentDelivery/${identifier}`;
   const responseJson = await fetch(configUrl, {
     headers: {
-      Authorization: 'FmHQ863M0$f0MZqV?orn7q6hm&u&CP3IKMCUPKnsbD9MvXgkUK',
+      Authorization: CONFIG_AUTH_HEADER,
     },
   }).then((response) => response.json());
   return responseJson;
@@ -310,6 +98,9 @@ const getImage = async (config, bucket, file) => {
       });
       const url = `https://${config.storage_buckets[bucket].host}/${bucket}/${file}`;
       const response = await aws.fetch(url);
+      if (response.status === 404) {
+        return undefined;
+      }
       let base64Image = '';
       new Uint8Array(await response.arrayBuffer()).forEach((byte) => {
         base64Image += String.fromCharCode(byte);
@@ -363,7 +154,7 @@ const getConfig = async (identifier) => {
   if (config === null) {
     config = await requestConfig(identifier);
     await CONFIG.put('kM6', JSON.stringify(config), {
-      expirationTtl,
+      expirationTtl: CONFIG_KV_EXPIRATION_SECONDS,
     });
   }
 
@@ -380,11 +171,15 @@ async function handleRequest(request) {
   const { bucket, identifier, imageUrlConfig, file } = getUrlParams(segments);
 
   const config = await getConfig(identifier);
+  if ('error' in config) {
+    return new Response('Could not get default config.', { status: 400 });
+  }
   const defaultImageConfig = getDefaultImageConfig(config);
+
   const base64Image = await getImage(config, bucket, file);
   if (base64Image === undefined) {
-    return new Response('Could not get a requested picture from bucket', {
-      status: 400,
+    return new Response('Could not get a requested picture from bucket.', {
+      status: 404,
     });
   }
 
@@ -402,6 +197,9 @@ async function handleRequest(request) {
   }
 
   const image = await processImage(imageUrlConfig, base64Image, imageConfig);
+  if (image === undefined) {
+    return new Response('Could not process image', { status: 400 });
+  }
   const buffer = await image.getBufferAsync(Jimp.MIME_JPEG);
   return new Response(buffer, {
     headers: { 'content-type': 'image/jpeg' },
