@@ -1,3 +1,4 @@
+import Jimp from './jimp.min.js';
 import {
   applyThumbConfig,
   applySmallConfig,
@@ -6,7 +7,31 @@ import {
   applyHd10808Config,
 } from './defaultConfigs';
 
-const getOverlayPosition = (
+export const getImageFromBucket = async (config, bucket, file) => {
+  if ('storage_buckets' in config) {
+    if (bucket in config.storage_buckets) {
+      const aws = new aws4fetch.AwsClient({
+        accessKeyId: config.storage_buckets[bucket].access.read.key,
+        secretAccessKey: config.storage_buckets[bucket].access.read.secret,
+        service: 's3',
+      });
+      const url = `https://${config.storage_buckets[bucket].host}/${bucket}/${file}`;
+      const response = await aws.fetch(url);
+      if (response.status === 404) {
+        return undefined;
+      }
+      let base64Image = '';
+      new Uint8Array(await response.arrayBuffer()).forEach((byte) => {
+        base64Image += String.fromCharCode(byte);
+      });
+      base64Image = btoa(base64Image);
+      return base64Image;
+    }
+  }
+  return undefined;
+};
+
+export const getOverlayPosition = (
   config,
   imageWidth,
   imageHeight,
@@ -35,7 +60,7 @@ const getOverlayPosition = (
   return { overlayWidthPosition, overlayHeightPosition };
 };
 
-const applyCustomConfig = async (base64Image, config) => {
+const applyConfig = async (base64Image, config) => {
   let base64OverlayImage = '';
   if ('o' in config || 'overlay' in config) {
     let uri = config.o || config.overlay;
@@ -191,7 +216,7 @@ const applyCustomConfig = async (base64Image, config) => {
     });
 };
 
-const processImage = async (imageUrlConfig, base64Image, config) => {
+export const processImage = async (imageUrlConfig, base64Image, config) => {
   let image;
   if (imageUrlConfig === 'thumb') {
     image = await applyThumbConfig(base64Image);
@@ -204,13 +229,8 @@ const processImage = async (imageUrlConfig, base64Image, config) => {
   } else if (imageUrlConfig === 'hd1080') {
     image = await applyHd10808Config(base64Image);
   } else {
-    image = await applyCustomConfig(base64Image, config);
+    image = await applyConfig(base64Image, config);
   }
 
   return image;
-};
-
-module.exports = {
-  getOverlayPosition,
-  processImage,
 };
