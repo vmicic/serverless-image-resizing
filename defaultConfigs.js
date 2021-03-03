@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 /* eslint-disable arrow-body-style */
 import { DEFAULT_CONFIGS } from './constants';
 
@@ -9,7 +8,7 @@ export const applyThumbConfig = async (base64Image) => {
       return image.cover(width, height);
     })
     .catch((err) => {
-      console.log(err);
+      return undefined;
     });
 };
 
@@ -20,7 +19,7 @@ export const applySmallConfig = async (base64Image) => {
       return image.contain(width, height);
     })
     .catch((err) => {
-      console.log(err);
+      return undefined;
     });
 };
 
@@ -31,7 +30,7 @@ export const applyMediumConfig = async (base64Image) => {
       return image.contain(width, height);
     })
     .catch((err) => {
-      console.log(err);
+      return undefined;
     });
 };
 
@@ -42,7 +41,7 @@ export const applyLargeConfig = async (base64Image) => {
       return image.contain(width, height);
     })
     .catch((err) => {
-      console.log(err);
+      return undefined;
     });
 };
 
@@ -53,6 +52,6 @@ export const applyHd10808Config = async (base64Image) => {
       return image.contain(width, height);
     })
     .catch((err) => {
-      console.log(err);
+      return undefined;
     });
 };
