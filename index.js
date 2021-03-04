@@ -41,7 +41,7 @@ const validateRequest = (request) => {
   const segments = url.split('/');
   if (segments.length !== 8) {
     invalidRequest = true;
-    response = new Response('Invalid url', { status: 400 });
+    response = new Response('Invalid url.', { status: 400 });
 
     return { invalidRequest, response };
   }
@@ -62,6 +62,7 @@ async function handleRequest(request) {
   if ('error' in config) {
     return new Response('Could not get default config.', { status: 400 });
   }
+
   const defaultImageConfig = getDefaultImageConfig(config);
   const base64Image = await getImageFromBucket(config, bucket, file);
   if (base64Image === undefined) {

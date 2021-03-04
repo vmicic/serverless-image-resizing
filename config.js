@@ -15,7 +15,10 @@ export const getConfig = async (identifier) => {
   let config = JSON.parse(await CONFIG.get(identifier));
   if (config === null) {
     config = await fetchDefaultConfig(identifier);
-    await CONFIG.put('kM6', JSON.stringify(config), {
+    if ('error' in config) {
+      return config;
+    }
+    await CONFIG.put(identifier, JSON.stringify(config), {
       expirationTtl: CONFIG_KV_EXPIRATION_SECONDS,
     });
   }
@@ -68,6 +71,22 @@ export const invalidConfig = (config) => {
 };
 
 export const invalidSignature = (urlConfig, hashKey) => {
+  if (urlConfig === 'thumb') {
+    return false;
+  }
+  if (urlConfig === 'small') {
+    return false;
+  }
+  if (urlConfig === 'medium') {
+    return false;
+  }
+  if (urlConfig === 'large') {
+    return false;
+  }
+  if (urlConfig === 'hd1080') {
+    return false;
+  }
+
   const decodedUrl = decodeURIComponent(urlConfig);
   const configSegments = decodedUrl.split(',');
   let urlWithoutSignature = '';
