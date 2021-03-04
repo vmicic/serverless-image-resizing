@@ -1,3 +1,4 @@
+/* eslint-disable */
 import Jimp from './jimp.min.js';
 import {
   applyThumbConfig,
@@ -129,9 +130,7 @@ const applyConfig = async (base64Image, config) => {
           } else {
             image.resize(width, Jimp.AUTO);
           }
-        }
-
-        if ('h' in config || 'height' in config) {
+        } else if ('h' in config || 'height' in config) {
           const height = config.h ? +config.h : +config.height;
           image.resize(Jimp.AUTO, height);
         }
