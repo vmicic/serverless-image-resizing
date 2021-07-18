@@ -1,6 +1,12 @@
 # serverless-image-resizing
 
-### In project root:
+# Description
+
+Cloudflare worker which can manipulate image with query parameters. It can resize, manipulate overlay (place it at specific position, repeat, size...), adjust quality and scale image.
+
+## How to run
+
+In project root:
 
 - `npm install`
 - `npm install -g @cloudflare/wrangler`
