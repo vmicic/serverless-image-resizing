@@ -1,6 +1,6 @@
 # serverless-image-resizing
 
-# Description
+## Description
 
 Cloudflare worker which can manipulate image with query parameters. It can resize, manipulate overlay (place it at specific position, repeat, size...), adjust quality and scale image.
 
